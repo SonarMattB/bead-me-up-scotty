@@ -38,7 +38,7 @@ export function Board() {
   );
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
   const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
-    useUrlFilters();
+    useUrlFilters(customStatuses);
   const { searchParams, updateUrl } = useUrlState();
   // Derived from ALL beads (not the filtered set) so selecting one label
   // doesn't make the remaining options vanish from the dropdown.
@@ -177,6 +177,7 @@ export function Board() {
           onChange={setFilters}
           labelOptions={labelOptions}
           assigneeOptions={assigneeOptions}
+          customStatuses={customStatuses}
           showArchived={showArchived}
           onShowArchived={setShowArchived}
           onClearAllAction={clearFilters}

@@ -74,7 +74,7 @@ export function ListView() {
   const COLUMN_ORDER = React.useMemo(() => COLUMNS.map((c) => c.id), [COLUMNS]);
 
   const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
-    useUrlFilters();
+    useUrlFilters(customStatuses);
   // Derived from ALL beads (not the filtered set) so selecting one label
   // doesn't make the remaining options vanish from the dropdown.
   const labelOptions = React.useMemo(() => labelOptionsFrom(beads), [beads]);
@@ -175,6 +175,7 @@ export function ListView() {
           onChange={setFilters}
           labelOptions={labelOptions}
           assigneeOptions={assigneeOptions}
+          customStatuses={customStatuses}
           showArchived={showArchived}
           onShowArchived={setShowArchived}
           onClearAllAction={clearFilters}

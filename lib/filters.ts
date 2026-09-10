@@ -50,10 +50,18 @@ function boundedValues(
   return distinctValues(params, name).filter((value) => allowed.includes(value));
 }
 
-/** Parse the shared Board/List filters from bookmarkable query parameters. */
-export function filtersFromSearchParams(params: SearchParamsReader): Filters {
+/**
+ * Parse the shared Board/List filters from bookmarkable query parameters.
+ * `customStatuses` (a project's `bd config get status.custom` values) extends
+ * the allowed `status` facet beyond the built-ins so a saved/shared filter
+ * URL for a custom status survives the round trip instead of being dropped.
+ */
+export function filtersFromSearchParams(
+  params: SearchParamsReader,
+  customStatuses: readonly string[] = [],
+): Filters {
   return {
-    status: boundedValues(params, "status", BEAD_STATUSES),
+    status: boundedValues(params, "status", [...BEAD_STATUSES, ...customStatuses]),
     type: boundedValues(params, "type", BEAD_TYPES),
     priority: [...new Set(
       distinctValues(params, "priority")

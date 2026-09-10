@@ -18,6 +18,7 @@ export function FilterBar({
   onChange,
   labelOptions,
   assigneeOptions,
+  customStatuses = [],
   showArchived,
   onShowArchived,
   onClearAllAction,
@@ -26,6 +27,8 @@ export function FilterBar({
   onChange: (f: Filters) => void;
   labelOptions: FilterOption[];
   assigneeOptions: FilterOption[];
+  /** Project-defined statuses (`bd config get status.custom`) beyond the built-ins. */
+  customStatuses?: string[];
   showArchived: boolean;
   onShowArchived: (v: boolean) => void;
   onClearAllAction?: () => void;
@@ -68,7 +71,7 @@ export function FilterBar({
       <div className="flex items-center gap-[7px]">
         <MultiSelectFilter
           label="Status"
-          options={BEAD_STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+          options={[...BEAD_STATUSES, ...customStatuses].map((s) => ({ value: s, label: statusLabel(s) }))}
           selected={filters.status}
           onToggle={(v) => set({ status: toggleStr(filters.status, v) })}
           onClear={() => set({ status: [] })}

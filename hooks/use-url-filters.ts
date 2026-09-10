@@ -20,12 +20,13 @@ function sameFacets(a: Filters, b: Filters): boolean {
   );
 }
 
-/** Shared, URL-backed Board/List filter state. */
-export function useUrlFilters() {
+/** Shared, URL-backed Board/List filter state. `customStatuses` extends the
+ * allowed `status` facet beyond the built-ins (see filtersFromSearchParams). */
+export function useUrlFilters(customStatuses: readonly string[] = []) {
   const { searchParams, updateUrl } = useUrlState();
   const filters = React.useMemo(
-    () => filtersFromSearchParams(searchParams),
-    [searchParams],
+    () => filtersFromSearchParams(searchParams, customStatuses),
+    [searchParams, customStatuses],
   );
   const showArchived = searchParams.get("archived") === "1";
 

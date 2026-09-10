@@ -110,8 +110,17 @@ const STATUS_LABELS: Record<string, string> = {
   pinned: "Pinned",
   hooked: "Hooked",
 };
+/** "ready_for_qa" -> "Ready For Qa". Used for statuses with no display label. */
+export function titleCase(raw: string): string {
+  return raw
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status;
+  return STATUS_LABELS[status] ?? titleCase(status);
 }
 
 const PRIO_COLORS = ["#ef4444", "#f97316", "#eab308", "#0ea5e9", "#64748b"];

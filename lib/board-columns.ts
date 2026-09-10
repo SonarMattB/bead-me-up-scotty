@@ -1,5 +1,5 @@
 import type { Bead } from "./schema";
-import { isBlocked } from "./beads-view";
+import { isBlocked, titleCase } from "./beads-view";
 
 /**
  * The board's column model — shared by the Board (Kanban) and List views so they
@@ -32,14 +32,6 @@ export const COLUMN_ORDER: string[] = BASE_COLUMNS.map((c) => c.id);
 
 // Rotating palette for custom-status columns beyond the 5 built-in colors above.
 const CUSTOM_COLORS = ["#8b5cf6", "#ec4899", "#14b8a6", "#f59e0b", "#0ea5e9"];
-
-function titleCase(status: string): string {
-  return status
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((w) => w[0].toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 /** One column per project-defined custom status (`bd config get status.custom`). */
 function customColumn(status: string, index: number): BoardColumn {
