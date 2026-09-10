@@ -22,9 +22,11 @@ import { CopyableId } from "@/components/copyable-id";
 import { FilterBar } from "@/components/filter-bar";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useSetStatus } from "@/hooks/use-beads";
+import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import { useCustomStatuses } from "@/hooks/use-custom-statuses";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
-import { BOARD_COLUMNS, COLUMN_ORDER, colOf } from "@/lib/board-columns";
+import { buildBoardColumns, colOf } from "@/lib/board-columns";
 import { beadOrigin, originTitle } from "@/lib/attribution";
 import {
   catColor,
@@ -60,6 +62,16 @@ export function ListView() {
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
+  const { prefs: boardPrefs } = useBoardPrefs();
+  const { data: customStatusesData } = useCustomStatuses(projectId);
+  const customStatuses = React.useMemo(() => customStatusesData?.custom ?? [], [customStatusesData]);
+  // Shares the Board's column set/order (same source: BoardPrefs.columnOrder)
+  // so the two views agree on grouping and ordering.
+  const COLUMNS = React.useMemo(
+    () => buildBoardColumns(customStatuses, boardPrefs.columnOrder),
+    [customStatuses, boardPrefs.columnOrder],
+  );
+  const COLUMN_ORDER = React.useMemo(() => COLUMNS.map((c) => c.id), [COLUMNS]);
 
   const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
     useUrlFilters();
@@ -76,11 +88,11 @@ export function ListView() {
   const colById = React.useMemo(() => {
     const m = new Map<string, string>();
     for (const b of beads) {
-      const c = colOf(b, index);
+      const c = colOf(b, index, customStatuses);
       if (c) m.set(b.id, c);
     }
     return m;
-  }, [beads, index]);
+  }, [beads, index, customStatuses]);
 
   // Sort: by board column order, then the column's shared manual rank, then priority.
   const rows = React.useMemo(() => {
@@ -108,7 +120,7 @@ export function ListView() {
         if (ea !== eb) return ea - eb;
         return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
       });
-  }, [beads, filters, showArchived, humanAllowlist, colById, orders, index]);
+  }, [beads, filters, showArchived, humanAllowlist, colById, orders, index, COLUMN_ORDER]);
 
   // Per-column counts for the group headers. Derived from `rows` (not `beads`)
   // so the count always matches what is rendered beneath the header once the
@@ -140,7 +152,7 @@ export function ListView() {
       setOrder.mutate({ columnId: activeCol, ids: arrayMove(ids, oldI, newI) });
     } else {
       // Across columns → status change (cross-column = status, like the Board).
-      const target = BOARD_COLUMNS.find((c) => c.id === overCol);
+      const target = COLUMNS.find((c) => c.id === overCol);
       if (!target || !target.droppable || !target.status) return;
       const bead = index.get(activeId);
       if (!bead || bead.status === target.status) return;
@@ -195,7 +207,7 @@ export function ListView() {
                   const col = colById.get(b.id);
                   const prevCol = i > 0 ? colById.get(rows[i - 1].id) : undefined;
                   const showGroup = col && col !== prevCol;
-                  const meta = BOARD_COLUMNS.find((c) => c.id === col);
+                  const meta = COLUMNS.find((c) => c.id === col);
                   return (
                     <React.Fragment key={b.id}>
                       {showGroup && meta && (

@@ -165,7 +165,10 @@ export type CreateInput = z.infer<typeof createInputSchema>;
 export const updateInputSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   description: z.string().optional(),
-  status: z.enum(BEAD_STATUSES).optional(),
+  // Not z.enum(BEAD_STATUSES): projects can define custom statuses via
+  // `bd config set status.custom`, and `bd update -s <status>` is the real
+  // gate — it rejects anything neither built-in nor project-configured.
+  status: z.string().min(1).optional(),
   priority: z.coerce.number().int().min(0).max(4).optional(),
   issue_type: z.enum(BEAD_TYPES).optional(),
   assignee: z.string().optional(),

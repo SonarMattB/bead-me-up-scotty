@@ -2,12 +2,14 @@ import { getStore } from "@/lib/store";
 import { getConfig } from "@/lib/config";
 import { ok, fail } from "@/lib/api";
 import { z } from "zod";
-import { BEAD_STATUSES } from "@/lib/schema";
 
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  status: z.enum(BEAD_STATUSES),
+  // Not z.enum(BEAD_STATUSES): projects can define custom statuses via
+  // `bd config set status.custom`; `bd update -s <status>` rejects anything
+  // neither built-in nor project-configured, so that's the real gate.
+  status: z.string().min(1),
   /** Optional close reason; ignored for every status other than `closed`. */
   reason: z.string().max(10_000).optional(),
 });

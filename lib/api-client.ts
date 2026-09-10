@@ -235,6 +235,12 @@ export const api = {
       }),
   },
 
+  // Project-defined custom statuses (`bd config get status.custom`).
+  statuses: {
+    custom: (projectId: string) =>
+      request<{ custom: string[] }>(`${base(projectId)}/statuses`),
+  },
+
   // Image attachments stored under <repo>/.beads/attachments/<beadId>/.
   attachments: {
     upload: async (projectId: string, beadId: string, file: File) => {

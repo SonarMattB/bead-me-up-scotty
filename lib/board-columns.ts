@@ -17,7 +17,8 @@ export interface BoardColumn {
   test: (b: Bead, blocked: boolean) => boolean;
 }
 
-export const BOARD_COLUMNS: BoardColumn[] = [
+/** The 5 built-in columns — always present, in this default order. */
+const BASE_COLUMNS: BoardColumn[] = [
   { id: "backlog", name: "Backlog", color: "#64748b", cmd: "deferred", droppable: true, status: "deferred", test: (b) => b.status === "deferred" },
   { id: "ready", name: "Ready", color: "#3b82f6", cmd: "bd ready", droppable: true, status: "open", test: (b, blocked) => b.status === "open" && !blocked },
   { id: "in_progress", name: "In Progress", color: "#d97706", cmd: "in_progress", droppable: true, status: "in_progress", test: (b) => b.status === "in_progress" || b.status === "hooked" },
@@ -25,12 +26,72 @@ export const BOARD_COLUMNS: BoardColumn[] = [
   { id: "done", name: "Done", color: "#16a34a", cmd: "closed", droppable: true, status: "closed", test: (b) => b.status === "closed" },
 ];
 
-export const COLUMN_ORDER: string[] = BOARD_COLUMNS.map((c) => c.id);
+/** Back-compat: base columns in their default order, no custom statuses. */
+export const BOARD_COLUMNS: BoardColumn[] = BASE_COLUMNS;
+export const COLUMN_ORDER: string[] = BASE_COLUMNS.map((c) => c.id);
 
-/** Which board column a bead belongs to (first matching test), or null. */
-export function colOf(bead: Bead, index: Map<string, Bead>): string | null {
+// Rotating palette for custom-status columns beyond the 5 built-in colors above.
+const CUSTOM_COLORS = ["#8b5cf6", "#ec4899", "#14b8a6", "#f59e0b", "#0ea5e9"];
+
+function titleCase(status: string): string {
+  return status
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/** One column per project-defined custom status (`bd config get status.custom`). */
+function customColumn(status: string, index: number): BoardColumn {
+  return {
+    id: status,
+    name: titleCase(status),
+    color: CUSTOM_COLORS[index % CUSTOM_COLORS.length],
+    cmd: status,
+    droppable: true,
+    status,
+    test: (b) => b.status === status,
+  };
+}
+
+/**
+ * The board's full column set: the 5 built-ins plus one column per custom
+ * status, arranged per `order` (a saved column-id order, e.g. from
+ * BoardPrefs). Ids in `order` but no longer relevant (a removed custom
+ * status) are dropped; ids not yet in `order` (new custom statuses) are
+ * appended after the base columns, before any other trailing custom ones.
+ */
+export function buildBoardColumns(customStatuses: string[], order?: string[]): BoardColumn[] {
+  const all = [...BASE_COLUMNS, ...customStatuses.map(customColumn)];
+  if (!order || order.length === 0) return all;
+
+  const byId = new Map(all.map((c) => [c.id, c]));
+  const ordered: BoardColumn[] = [];
+  for (const id of order) {
+    const col = byId.get(id);
+    if (col) {
+      ordered.push(col);
+      byId.delete(id);
+    }
+  }
+  // Anything left (new since the order was saved) keeps its default position.
+  for (const col of all) if (byId.has(col.id)) ordered.push(col);
+  return ordered;
+}
+
+/**
+ * Which board column a bead belongs to (first matching test), or null.
+ * `customStatuses` defaults to none — callers that don't (yet) know about a
+ * project's custom statuses just get the 5 built-in columns, as before.
+ */
+export function colOf(
+  bead: Bead,
+  index: Map<string, Bead>,
+  customStatuses: string[] = [],
+): string | null {
   const blocked = isBlocked(bead, index);
-  for (const c of BOARD_COLUMNS) if (c.test(bead, blocked)) return c.id;
+  const columns = customStatuses.length ? buildBoardColumns(customStatuses) : BASE_COLUMNS;
+  for (const c of columns) if (c.test(bead, blocked)) return c.id;
   return null;
 }
 

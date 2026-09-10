@@ -149,6 +149,10 @@ export const demoStore: BeadsStore = {
     b.updated_at = nowIso();
     return { ...b };
   },
+  async getCustomStatuses() {
+    // No bd project behind demo mode, so there's no `status.custom` to read.
+    return [];
+  },
   async doctor(): Promise<DoctorInfo> {
     return {
       kind: "demo",

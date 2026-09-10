@@ -8,23 +8,20 @@ import {
   closestCorners,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { Icon } from "@/components/icons";
 import { useApp } from "@/components/app-context";
 import { useSetStatus } from "@/hooks/use-beads";
 import { useOrder, useSetOrder } from "@/hooks/use-order";
 import { useBoardPrefs } from "@/hooks/use-board-prefs";
+import { useCustomStatuses } from "@/hooks/use-custom-statuses";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { useUrlState } from "@/hooks/use-url-state";
 import { isBlocked, childrenCountMap } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
-import {
-  BOARD_COLUMNS as COLUMNS,
-  sortBoardCards,
-  type BoardSortMode,
-} from "@/lib/board-columns";
-import { Column } from "./column";
+import { buildBoardColumns, sortBoardCards, type BoardSortMode } from "@/lib/board-columns";
+import { Column, columnDragId } from "./column";
 import type { Bead } from "@/lib/schema";
 
 export function Board() {
@@ -33,6 +30,12 @@ export function Board() {
   const { data: orderData } = useOrder(projectId);
   const setOrder = useSetOrder(projectId);
   const { prefs: boardPrefs, setPrefs: setBoardPrefs } = useBoardPrefs();
+  const { data: customStatusesData } = useCustomStatuses(projectId);
+  const customStatuses = React.useMemo(() => customStatusesData?.custom ?? [], [customStatusesData]);
+  const COLUMNS = React.useMemo(
+    () => buildBoardColumns(customStatuses, boardPrefs.columnOrder),
+    [customStatuses, boardPrefs.columnOrder],
+  );
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
   const { filters, setFilters, showArchived, setShowArchived, clearFilters } =
     useUrlFilters();
@@ -91,7 +94,7 @@ export function Board() {
           cards: sortBoardCards(cards, boardPrefs.sortMode, orders[c.id]),
         };
       }),
-    [visible, index, orders, boardPrefs.sortMode, doneWindow, now],
+    [COLUMNS, visible, index, orders, boardPrefs.sortMode, doneWindow, now],
   );
 
   // Hide the Blocked column when it's empty, unless the user pinned it to always
@@ -118,6 +121,19 @@ export function Board() {
     const activeId = String(e.active.id);
     const overRaw = e.over?.id ? String(e.over.id) : null;
     if (!overRaw) return;
+
+    if (e.active.data.current?.type === "column") {
+      // Column header drag → reorder columns (persisted per-browser).
+      const activeColId = e.active.data.current.colId as string;
+      const overColId = (e.over?.data.current?.colId as string | undefined) ?? overRaw;
+      if (!activeColId || !overColId || activeColId === overColId) return;
+      const ids = COLUMNS.map((c) => c.id);
+      const oldIndex = ids.indexOf(activeColId);
+      const newIndex = ids.indexOf(overColId);
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+      setBoardPrefs({ ...boardPrefs, columnOrder: arrayMove(ids, oldIndex, newIndex) });
+      return;
+    }
 
     const activeCol = colOfBead.get(activeId);
     if (!activeCol) return;
@@ -209,6 +225,10 @@ export function Board() {
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+            <SortableContext
+              items={shownColumns.map(({ col }) => columnDragId(col.id))}
+              strategy={horizontalListSortingStrategy}
+            >
             <div className="flex h-full min-h-0 gap-4">
               {shownColumns.map(({ col, cards }) => (
                 <Column
@@ -217,6 +237,7 @@ export function Board() {
                   cards={cards}
                   childCounts={childCounts}
                   manualSort={boardPrefs.sortMode === "manual"}
+                  reorderable={!readOnly}
                   control={
                     col.id === "done" ? (
                       <select
@@ -238,6 +259,7 @@ export function Board() {
                 />
               ))}
             </div>
+            </SortableContext>
           </DndContext>
         )}
       </div>

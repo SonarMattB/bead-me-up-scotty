@@ -73,6 +73,18 @@ async function runBdJson<T = unknown>(
   return unwrapEnvelope(JSON.parse(out)) as T;
 }
 
+/**
+ * Parse the `status.custom` config value into status names. Entries are
+ * comma-separated and each may carry an optional `:category` tag (bd's own
+ * bucketing, e.g. `ready_for_qa:wip`) — we only need the name.
+ */
+function parseCustomStatuses(value: string): string[] {
+  return value
+    .split(",")
+    .map((entry) => entry.split(":")[0].trim())
+    .filter(Boolean);
+}
+
 /** Parse `bd export --json` JSONL output into validated beads. */
 function parseExport(jsonl: string): Bead[] {
   const beads: Bead[] = [];
@@ -298,6 +310,14 @@ export function createBdStore(repoPath: string): BeadsStore {
         await runBdRaw(["label", "add", id, "archived"], rw(actor));
         return show(id);
       });
+    },
+
+    async getCustomStatuses(): Promise<string[]> {
+      const { value } = await runBdJson<{ value: string }>(
+        ["config", "get", "status.custom"],
+        ro,
+      );
+      return parseCustomStatuses(value ?? "");
     },
 
     async doctor(): Promise<DoctorInfo> {

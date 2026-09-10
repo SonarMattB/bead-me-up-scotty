@@ -10,8 +10,10 @@ export interface BoardPrefs {
   sortMode: BoardSortMode;
   checkUpdates: boolean;
   updateChannel: UpdateChannel;
+  /** Saved column-id order (Board/List). Empty = default order. Per-browser. */
+  columnOrder: string[];
 }
-const DEFAULTS: BoardPrefs = { blockedColumn: "auto", sortMode: "manual", checkUpdates: true, updateChannel: "stable" };
+const DEFAULTS: BoardPrefs = { blockedColumn: "auto", sortMode: "manual", checkUpdates: true, updateChannel: "stable", columnOrder: [] };
 function snapshot() {
   try { return globalThis.localStorage?.getItem(PREFS_KEY) || ""; } catch { return ""; }
 }
@@ -21,7 +23,8 @@ function parse(raw: string): BoardPrefs {
     return { blockedColumn: stored?.blockedColumn === "always" ? "always" : "auto",
       sortMode: ["priority", "updated", "manual"].includes(stored?.sortMode) ? stored.sortMode : "manual",
       checkUpdates: typeof stored?.checkUpdates === "boolean" ? stored.checkUpdates : true,
-      updateChannel: stored?.updateChannel === "development" ? "development" : "stable" };
+      updateChannel: stored?.updateChannel === "development" ? "development" : "stable",
+      columnOrder: Array.isArray(stored?.columnOrder) ? stored.columnOrder.filter((x: unknown) => typeof x === "string") : [] };
   } catch { return DEFAULTS; }
 }
 export function loadBoardPrefs(): BoardPrefs { return parse(snapshot()); }

@@ -38,6 +38,8 @@ export interface BeadsStore {
   removeLabel(id: string, label: string, actor: string): Promise<Bead>;
   archive(id: string, actor: string): Promise<Bead>;
   doctor(): Promise<DoctorInfo>;
+  /** Project-defined custom statuses (`bd config get status.custom`), beyond the built-ins. */
+  getCustomStatuses(): Promise<string[]>;
 }
 
 // One store per project id. Demo always maps to the shared in-memory store.
