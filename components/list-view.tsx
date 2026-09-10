@@ -64,7 +64,10 @@ export function ListView() {
   const orders = React.useMemo(() => orderData?.orders ?? {}, [orderData]);
   const { prefs: boardPrefs } = useBoardPrefs();
   const { data: customStatusesData } = useCustomStatuses(projectId);
-  const customStatuses = React.useMemo(() => customStatusesData?.custom ?? [], [customStatusesData]);
+  const customStatuses = React.useMemo(
+    () => (customStatusesData?.custom ?? []).map((s) => s.status),
+    [customStatusesData],
+  );
   // Shares the Board's column set/order (same source: BoardPrefs.columnOrder)
   // so the two views agree on grouping and ordering.
   const COLUMNS = React.useMemo(

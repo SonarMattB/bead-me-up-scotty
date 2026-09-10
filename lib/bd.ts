@@ -11,7 +11,7 @@ import {
   type UpdateInput,
   type DepType,
 } from "./schema";
-import type { BeadsStore, DoctorInfo } from "./store";
+import type { BeadsStore, CustomStatus, DoctorInfo } from "./store";
 
 const pExecFile = promisify(execFile);
 const BD_BIN = process.env.BD_BIN || "bd";
@@ -74,15 +74,18 @@ async function runBdJson<T = unknown>(
 }
 
 /**
- * Parse the `status.custom` config value into status names. Entries are
- * comma-separated and each may carry an optional `:category` tag (bd's own
- * bucketing, e.g. `ready_for_qa:wip`) — we only need the name.
+ * Parse the `status.custom` config value. Entries are comma-separated and
+ * each may carry an optional `:category` tag (e.g. `ready_for_qa:wip`) that
+ * buckets the status into a workflow phase — `wip` is what Focus's "In
+ * flight" column looks for, alongside the built-in in_progress/hooked.
  */
-function parseCustomStatuses(value: string): string[] {
-  return value
-    .split(",")
-    .map((entry) => entry.split(":")[0].trim())
-    .filter(Boolean);
+function parseCustomStatuses(value: string): CustomStatus[] {
+  const out: CustomStatus[] = [];
+  for (const entry of value.split(",")) {
+    const [status, category] = entry.split(":").map((s) => s.trim());
+    if (status) out.push(category ? { status, category } : { status });
+  }
+  return out;
 }
 
 /** Parse `bd export --json` JSONL output into validated beads. */
@@ -312,7 +315,7 @@ export function createBdStore(repoPath: string): BeadsStore {
       });
     },
 
-    async getCustomStatuses(): Promise<string[]> {
+    async getCustomStatuses(): Promise<CustomStatus[]> {
       const { value } = await runBdJson<{ value: string }>(
         ["config", "get", "status.custom"],
         ro,

@@ -31,7 +31,10 @@ export function Board() {
   const setOrder = useSetOrder(projectId);
   const { prefs: boardPrefs, setPrefs: setBoardPrefs } = useBoardPrefs();
   const { data: customStatusesData } = useCustomStatuses(projectId);
-  const customStatuses = React.useMemo(() => customStatusesData?.custom ?? [], [customStatusesData]);
+  const customStatuses = React.useMemo(
+    () => (customStatusesData?.custom ?? []).map((s) => s.status),
+    [customStatusesData],
+  );
   const COLUMNS = React.useMemo(
     () => buildBoardColumns(customStatuses, boardPrefs.columnOrder),
     [customStatuses, boardPrefs.columnOrder],

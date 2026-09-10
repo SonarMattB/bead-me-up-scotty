@@ -10,6 +10,13 @@ import { demoStore } from "./demo-store";
  *  - DemoStore → in-memory, seeded from the design export, so the app runs and
  *    is demoable even where bd isn't installed.
  */
+/** One entry from `bd config get status.custom` (e.g. "ready_for_qa:wip"). */
+export interface CustomStatus {
+  status: string;
+  /** Optional workflow-phase tag, e.g. "wip" — Focus's "In flight" looks for this. */
+  category?: string;
+}
+
 export interface DoctorInfo {
   kind: "bd" | "demo";
   ok: boolean;
@@ -39,7 +46,7 @@ export interface BeadsStore {
   archive(id: string, actor: string): Promise<Bead>;
   doctor(): Promise<DoctorInfo>;
   /** Project-defined custom statuses (`bd config get status.custom`), beyond the built-ins. */
-  getCustomStatuses(): Promise<string[]>;
+  getCustomStatuses(): Promise<CustomStatus[]>;
 }
 
 // One store per project id. Demo always maps to the shared in-memory store.

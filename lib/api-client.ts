@@ -1,5 +1,6 @@
 import type { Bead, CreateInput, UpdateInput, DepType } from "./schema";
 import type { UpdateStatus, UpdateResult, UpdateChannel, UpdateTarget } from "./update-types";
+import type { CustomStatus } from "./store";
 
 export interface Meta {
   kind: "bd" | "demo";
@@ -238,7 +239,7 @@ export const api = {
   // Project-defined custom statuses (`bd config get status.custom`).
   statuses: {
     custom: (projectId: string) =>
-      request<{ custom: string[] }>(`${base(projectId)}/statuses`),
+      request<{ custom: CustomStatus[] }>(`${base(projectId)}/statuses`),
   },
 
   // Image attachments stored under <repo>/.beads/attachments/<beadId>/.

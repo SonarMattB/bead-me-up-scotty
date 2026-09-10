@@ -1,6 +1,6 @@
 import "server-only";
 import { beadSchema, type Bead, type CreateInput, type UpdateInput, type DepType, type Dependency } from "./schema";
-import type { BeadsStore, DoctorInfo } from "./store";
+import type { BeadsStore, CustomStatus, DoctorInfo } from "./store";
 import { demoBeads } from "./demo-data";
 
 /**
@@ -149,7 +149,7 @@ export const demoStore: BeadsStore = {
     b.updated_at = nowIso();
     return { ...b };
   },
-  async getCustomStatuses() {
+  async getCustomStatuses(): Promise<CustomStatus[]> {
     // No bd project behind demo mode, so there's no `status.custom` to read.
     return [];
   },

@@ -3,6 +3,7 @@ import * as React from "react";
 import { useApp } from "@/components/app-context";
 import { Icon, typeIconName } from "@/components/icons";
 import { PriorityChip } from "@/components/board/bead-card";
+import { useCustomStatuses } from "@/hooks/use-custom-statuses";
 import { isBlocked, blockingDeps, relTime, fmtDateTime, typeColor, catColor } from "@/lib/beads-view";
 import type { Bead } from "@/lib/schema";
 
@@ -70,12 +71,25 @@ function laneOf(b: Bead, prefix: string): string | null {
 }
 
 export function FocusView() {
-  const { beads, index, meta } = useApp();
+  const { beads, index, meta, projectId } = useApp();
   const prefix = meta?.lanePrefix ?? null;
   const [groupBy, setGroupBy] = React.useState<"none" | "assignee">("none");
   const [showRecent, setShowRecent] = React.useState(false);
   const [showAllRecent, setShowAllRecent] = React.useState(false);
   const [lane, setLane] = React.useState<string | null>(null); // null = all, "" = unlabeled
+
+  // Custom statuses tagged `:wip` in `bd config set status.custom` (e.g.
+  // "ready_for_qa:wip") count as in-flight work too, alongside the built-in
+  // in_progress/hooked.
+  const { data: customStatusesData } = useCustomStatuses(projectId);
+  const wipStatuses = React.useMemo(
+    () => (customStatusesData?.custom ?? []).filter((s) => s.category === "wip").map((s) => s.status),
+    [customStatusesData],
+  );
+  const isInFlight = React.useCallback(
+    (b: Bead) => b.status === "in_progress" || b.status === "hooked" || wipStatuses.includes(b.status),
+    [wipStatuses],
+  );
 
   const active = React.useMemo(
     () => beads.filter((b) => !(b.labels ?? []).includes(ARCHIVED)),
@@ -86,12 +100,12 @@ export function FocusView() {
     if (!prefix) return [];
     const s = new Set<string>();
     for (const b of active) {
-      if (!["in_progress", "hooked", "blocked", "open"].includes(b.status) && !(showRecent && b.status === "closed")) continue;
+      if (!(isInFlight(b) || ["blocked", "open"].includes(b.status)) && !(showRecent && b.status === "closed")) continue;
       const l = laneOf(b, prefix);
       if (l) s.add(l);
     }
     return [...s].sort();
-  }, [active, prefix, showRecent]);
+  }, [active, prefix, showRecent, isInFlight]);
 
   // A live update can remove the selected lane. Fall back to All so the
   // hidden filter cannot strand the user on an empty screen.
@@ -107,8 +121,8 @@ export function FocusView() {
   );
 
   const inFlight = React.useMemo(
-    () => active.filter((b) => (b.status === "in_progress" || b.status === "hooked") && inLane(b)),
-    [active, inLane],
+    () => active.filter((b) => isInFlight(b) && inLane(b)),
+    [active, isInFlight, inLane],
   );
   const blocked = React.useMemo(
     () => active.filter((b) => isBlocked(b, index) && inLane(b)),
@@ -126,7 +140,12 @@ export function FocusView() {
     .sort((a, b) => completionTime(b) - completionTime(a) || a.id.localeCompare(b.id));
   const recentItems = showAllRecent ? recentlyFinished : recentlyFinished.slice(0, RECENT_LIMIT);
   const columns: FocusColumn[] = [
-    { id: "flight", title: "In flight", hint: "in progress or hooked", items: inFlight },
+    {
+      id: "flight",
+      title: "In flight",
+      hint: wipStatuses.length ? "in progress, hooked, or a wip custom status" : "in progress or hooked",
+      items: inFlight,
+    },
     { id: "blocked", title: "Blocked", hint: "waiting on a dependency or marked blocked", items: blocked },
     { id: "next", title: "Next up", hint: "ready · P0/P1", items: nextUp },
     ...(showRecent ? [{ id: "recent", title: "Recently finished", hint: "latest completions", items: recentItems }] : []),
