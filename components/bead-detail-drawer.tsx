@@ -16,6 +16,7 @@ import { CopyableId } from "@/components/copyable-id";
 import { useApp, type DetailAction } from "@/components/app-context";
 import { useImageDrop } from "@/hooks/use-image-drop";
 import { useResizableWidth } from "@/hooks/use-resizable-width";
+import { useCustomStatuses } from "@/hooks/use-custom-statuses";
 import { DescriptionContent } from "@/components/description-content";
 import { MarkdownToolbar, applyTransform } from "@/components/markdown-toolbar";
 import { bold, italic, link } from "@/lib/markdown-edit";
@@ -195,6 +196,8 @@ function DrawerBody({
     useApp();
   const actor = meta?.humanActor ?? "you";
   const isDemo = meta?.kind === "demo";
+  const { data: customStatusesData } = useCustomStatuses(projectId);
+  const customStatuses = customStatusesData?.custom ?? [];
 
   const update = useUpdateBead();
   const setStatus = useSetStatus();
@@ -474,6 +477,11 @@ function DrawerBody({
               {BEAD_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {statusLabel(s)}
+                </option>
+              ))}
+              {customStatuses.map((s) => (
+                <option key={s.status} value={s.status}>
+                  {statusLabel(s.status)}
                 </option>
               ))}
             </select>

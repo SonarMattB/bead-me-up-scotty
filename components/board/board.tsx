@@ -6,6 +6,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  type CollisionDetection,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -23,6 +24,24 @@ import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/fil
 import { buildBoardColumns, sortBoardCards, type BoardSortMode } from "@/lib/board-columns";
 import { Column, columnDragId } from "./column";
 import type { Bead } from "@/lib/schema";
+
+/**
+ * The column-header drag handle (`useSortable`) is refed to the whole column
+ * section (so the reorder animation slides the cards along with it), which
+ * means its droppable rect fully overlaps the card-drop-zone droppable
+ * underneath. Left to plain `closestCorners`, a card dropped anywhere in a
+ * column could resolve to the column's own drag-handle id instead of the
+ * card zone, silently no-opping the status change. Segregate the two drag
+ * kinds by their `data.current.type` before running collision detection so
+ * a card drag only ever considers card-zone droppables, and vice versa.
+ */
+const collisionDetectionStrategy: CollisionDetection = (args) => {
+  const isColumnDrag = args.active.data.current?.type === "column";
+  const droppableContainers = args.droppableContainers.filter((c) =>
+    isColumnDrag ? c.data.current?.type === "column" : c.data.current?.type !== "column",
+  );
+  return closestCorners({ ...args, droppableContainers });
+};
 
 export function Board() {
   const { beads, index, humanAllowlist, openCreate, loading, projectId, readOnly } = useApp();
@@ -228,7 +247,7 @@ export function Board() {
         {loading && beads.length === 0 ? (
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={collisionDetectionStrategy} onDragEnd={onDragEnd}>
             <SortableContext
               items={shownColumns.map(({ col }) => columnDragId(col.id))}
               strategy={horizontalListSortingStrategy}
