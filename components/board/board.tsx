@@ -5,7 +5,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  closestCenter,
+  pointerWithin,
+  rectIntersection,
   type CollisionDetection,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -29,18 +31,29 @@ import type { Bead } from "@/lib/schema";
  * The column-header drag handle (`useSortable`) is refed to the whole column
  * section (so the reorder animation slides the cards along with it), which
  * means its droppable rect fully overlaps the card-drop-zone droppable
- * underneath. Left to plain `closestCorners`, a card dropped anywhere in a
- * column could resolve to the column's own drag-handle id instead of the
- * card zone, silently no-opping the status change. Segregate the two drag
- * kinds by their `data.current.type` before running collision detection so
- * a card drag only ever considers card-zone droppables, and vice versa.
+ * underneath. Segregate the two drag kinds by their `data.current.type`
+ * before running collision detection so a card drag only ever considers
+ * card-zone droppables, and a column drag only ever considers other columns.
+ *
+ * Cards additionally need pointer-based detection, not `closestCorners`:
+ * columns are tall, narrow containers, so a corner-distance comparison can
+ * easily pick an adjacent column over the one the cursor is actually inside
+ * — especially since the dragged card's own rect gets visually clipped by
+ * the column's `overflow` once it crosses into a neighboring column, making
+ * corner-based detection even less reliable. `pointerWithin` resolves purely
+ * from where the pointer physically is, immune to that. Falls back to
+ * `rectIntersection` for the moment the pointer is briefly between two
+ * columns' rects (e.g. over the gap) where no container contains it exactly.
  */
 const collisionDetectionStrategy: CollisionDetection = (args) => {
   const isColumnDrag = args.active.data.current?.type === "column";
   const droppableContainers = args.droppableContainers.filter((c) =>
     isColumnDrag ? c.data.current?.type === "column" : c.data.current?.type !== "column",
   );
-  return closestCorners({ ...args, droppableContainers });
+  const scoped = { ...args, droppableContainers };
+  if (isColumnDrag) return closestCenter(scoped);
+  const pointerHits = pointerWithin(scoped);
+  return pointerHits.length > 0 ? pointerHits : rectIntersection(scoped);
 };
 
 export function Board() {
