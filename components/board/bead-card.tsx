@@ -22,19 +22,11 @@ import {
 } from "@/lib/beads-view";
 
 export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: number }) {
-  const { index, humanAllowlist, openDetail, readOnly, selectedBeadId, selectBead } = useApp();
+  const { openDetail, readOnly, selectedBeadId, selectBead } = useApp();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: bead.id,
     disabled: readOnly,
   });
-
-  const o = beadOrigin(bead, humanAllowlist);
-  const parent = parentOf(bead, index);
-  const blocked = isBlocked(bead, index);
-  const visLabels = (bead.labels ?? []).filter((l) => l !== "archived").slice(0, 2);
-  const depCount = (bead.dependencies ?? []).filter((d) => d.type !== "parent-child").length;
-  const commentCount = (bead.comments ?? []).length;
-  const checklist = checklistProgress(bead.description);
 
   return (
     <article
@@ -64,16 +56,53 @@ export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: nu
           : "border-border hover:border-[var(--text-3)]"
       }`}
     >
+      <BeadCardFace bead={bead} childCount={childCount} />
+    </article>
+  );
+}
+
+/**
+ * The copy that follows the pointer while a card is dragged. It has no sortable or
+ * keyboard wiring (and no data-keyboard-bead-id), so it never competes with the real
+ * card for drops, focus, or selection.
+ */
+export function BeadCardOverlay({ bead, childCount = 0 }: { bead: Bead; childCount?: number }) {
+  return (
+    <article
+      aria-hidden="true"
+      className="flex cursor-grabbing flex-col gap-[9px] rounded-[11px] border-2 border-[var(--text-3)] bg-[var(--surface)] p-[11px_12px] shadow-[var(--shadow)]"
+    >
+      <BeadCardFace bead={bead} childCount={childCount} preview />
+    </article>
+  );
+}
+
+function BeadCardFace({ bead, childCount, preview = false }: { bead: Bead; childCount: number; preview?: boolean }) {
+  const { index, humanAllowlist } = useApp();
+  const o = beadOrigin(bead, humanAllowlist);
+  const parent = parentOf(bead, index);
+  const blocked = isBlocked(bead, index);
+  const visLabels = (bead.labels ?? []).filter((l) => l !== "archived").slice(0, 2);
+  const depCount = (bead.dependencies ?? []).filter((d) => d.type !== "parent-child").length;
+  const commentCount = (bead.comments ?? []).length;
+  const checklist = checklistProgress(bead.description);
+
+  return (
+    <>
       <div className="flex items-center gap-2">
         <span
           className="h-2 w-2 flex-shrink-0 rounded-full"
           style={{ background: catColor(bead.status) }}
           title={statusLabel(bead.status)}
         />
-        <CopyableId
-          id={bead.id}
-          className="font-mono text-[11.5px] tracking-[-.01em] text-[var(--text-3)]"
-        />
+        {preview ? (
+          <span className="font-mono text-[11.5px] tracking-[-.01em] text-[var(--text-3)]">{bead.id}</span>
+        ) : (
+          <CopyableId
+            id={bead.id}
+            className="font-mono text-[11.5px] tracking-[-.01em] text-[var(--text-3)]"
+          />
+        )}
         <span className="flex-1" />
         <PriorityChip p={bead.priority} />
         <OriginBadge origin={o} title={originTitle(bead.created_by, o)} />
@@ -180,7 +209,7 @@ export function BeadCard({ bead, childCount = 0 }: { bead: Bead; childCount?: nu
           </span>
         )}
       </div>
-    </article>
+    </>
   );
 }
 

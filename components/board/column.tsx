@@ -26,6 +26,7 @@ export function Column({
   control,
   manualSort = true,
   reorderable = false,
+  dropTarget = false,
 }: {
   col: ColumnDef;
   cards: Bead[];
@@ -35,8 +36,13 @@ export function Column({
   manualSort?: boolean;
   /** Whether the column header is a drag handle for reordering columns. */
   reorderable?: boolean;
+  /**
+   * True while dropping the dragged card here would move it into this column. The
+   * board decides, so hovering one of this column's cards counts, not just empty space.
+   */
+  dropTarget?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: col.id, disabled: !col.droppable });
+  const { setNodeRef } = useDroppable({ id: col.id, disabled: !col.droppable });
   const {
     attributes,
     listeners,
@@ -80,7 +86,7 @@ export function Column({
         ref={setNodeRef}
         className={cn(
           "bd-scroll flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto overflow-x-hidden rounded-xl p-[4px_4px_14px] transition-[background,outline]",
-          isOver && col.droppable
+          dropTarget
             ? "bg-[var(--brand-weak)] outline-2 outline-dashed outline-[var(--brand)] -outline-offset-2"
             : "outline-2 outline-transparent",
         )}

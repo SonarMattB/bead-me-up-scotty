@@ -8,8 +8,11 @@ import {
   closestCenter,
   pointerWithin,
   rectIntersection,
+  DragOverlay,
   type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { Icon } from "@/components/icons";
@@ -24,6 +27,7 @@ import { isBlocked, childrenCountMap } from "@/lib/beads-view";
 import { FilterBar } from "@/components/filter-bar";
 import { matchesFilters, labelOptionsFrom, assigneeOptionsFrom } from "@/lib/filters";
 import { buildBoardColumns, sortBoardCards, type BoardSortMode } from "@/lib/board-columns";
+import { BeadCardOverlay } from "./bead-card";
 import { Column, columnDragId } from "./column";
 import type { Bead } from "@/lib/schema";
 
@@ -102,6 +106,12 @@ export function Board() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
+  // The card being dragged and the column under the pointer. The card renders in a
+  // DragOverlay so it can travel across columns; in place it is confined to (and
+  // clipped by) its own column's list.
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [overColumnId, setOverColumnId] = React.useState<string | null>(null);
+
   const matchFilters = React.useCallback(
     (b: Bead) => {
       if (b.issue_type === "epic") return false;
@@ -151,7 +161,27 @@ export function Board() {
     return m;
   }, [columns]);
 
+  // `over` is a column id (pointer over empty column space) or a bead id (over a card).
+  function columnUnder(overId: string | null): string | undefined {
+    if (!overId) return undefined;
+    return COLUMNS.some((c) => c.id === overId) ? overId : colOfBead.get(overId);
+  }
+
+  function endDrag() {
+    setDraggingId(null);
+    setOverColumnId(null);
+  }
+
+  function onDragStart(e: DragStartEvent) {
+    setDraggingId(String(e.active.id));
+  }
+
+  function onDragOver(e: DragOverEvent) {
+    setOverColumnId(columnUnder(e.over?.id ? String(e.over.id) : null) ?? null);
+  }
+
   function onDragEnd(e: DragEndEvent) {
+    endDrag();
     if (readOnly) return;
     const activeId = String(e.active.id);
     const overRaw = e.over?.id ? String(e.over.id) : null;
@@ -173,8 +203,7 @@ export function Board() {
     const activeCol = colOfBead.get(activeId);
     if (!activeCol) return;
 
-    // `over` is a column id (dropped on empty area) or a bead id (over a card).
-    const overCol = COLUMNS.some((c) => c.id === overRaw) ? overRaw : colOfBead.get(overRaw);
+    const overCol = columnUnder(overRaw);
     if (!overCol) return;
 
     if (overCol !== activeCol) {
@@ -196,6 +225,14 @@ export function Board() {
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
     setOrder.mutate({ columnId: activeCol, ids: arrayMove(ids, oldIndex, newIndex) });
   }
+
+  const draggingBead = draggingId ? index.get(draggingId) : undefined;
+  // Advertise only a column that a drop would actually move the card into.
+  const sourceColumnId = draggingId ? colOfBead.get(draggingId) : undefined;
+  const dropColumn = COLUMNS.find(
+    (c) => c.id === overColumnId && c.id !== sourceColumnId && c.droppable && c.status &&
+      draggingBead?.status !== c.status,
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -260,42 +297,57 @@ export function Board() {
         {loading && beads.length === 0 ? (
           <div className="text-[13px] text-[var(--text-3)]">Loading beads…</div>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={collisionDetectionStrategy} onDragEnd={onDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={collisionDetectionStrategy}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+            onDragCancel={endDrag}
+          >
             <SortableContext
               items={shownColumns.map(({ col }) => columnDragId(col.id))}
               strategy={horizontalListSortingStrategy}
             >
-            <div className="flex h-full min-h-0 gap-4">
-              {shownColumns.map(({ col, cards }) => (
-                <Column
-                  key={col.id}
-                  col={col}
-                  cards={cards}
-                  childCounts={childCounts}
-                  manualSort={boardPrefs.sortMode === "manual"}
-                  reorderable={!readOnly}
-                  control={
-                    col.id === "done" ? (
-                      <select
-                        value={doneWindow ?? ""}
-                        onChange={(e) =>
-                          setDoneWindow(e.target.value === "" ? null : Number(e.target.value))
-                        }
-                        title="Show only beads closed within this window"
-                        className="cursor-pointer rounded-[7px] border border-border bg-[var(--surface-2)] px-[7px] py-[3px] text-[11px] text-[var(--text-2)] outline-none"
-                      >
-                        <option value="">All time</option>
-                        <option value="7">Last 7 days</option>
-                        <option value="28">Last 4 weeks</option>
-                        <option value="90">Last 3 months</option>
-                        <option value="365">Last 12 months</option>
-                      </select>
-                    ) : undefined
-                  }
-                />
-              ))}
-            </div>
+              <div className="flex h-full min-h-0 gap-4">
+                {shownColumns.map(({ col, cards }) => (
+                  <Column
+                    key={col.id}
+                    col={col}
+                    cards={cards}
+                    childCounts={childCounts}
+                    manualSort={boardPrefs.sortMode === "manual"}
+                    reorderable={!readOnly}
+                    dropTarget={dropColumn?.id === col.id}
+                    control={
+                      col.id === "done" ? (
+                        <select
+                          value={doneWindow ?? ""}
+                          onChange={(e) =>
+                            setDoneWindow(e.target.value === "" ? null : Number(e.target.value))
+                          }
+                          title="Show only beads closed within this window"
+                          className="cursor-pointer rounded-[7px] border border-border bg-[var(--surface-2)] px-[7px] py-[3px] text-[11px] text-[var(--text-2)] outline-none"
+                        >
+                          <option value="">All time</option>
+                          <option value="7">Last 7 days</option>
+                          <option value="28">Last 4 weeks</option>
+                          <option value="90">Last 3 months</option>
+                          <option value="365">Last 12 months</option>
+                        </select>
+                      ) : undefined
+                    }
+                  />
+                ))}
+              </div>
             </SortableContext>
+            {/* No drop animation: a cross-column drop has already moved the card, so
+                animating the preview toward its old slot would read as a failed move. */}
+            <DragOverlay dropAnimation={null}>
+              {draggingBead ? (
+                <BeadCardOverlay bead={draggingBead} childCount={childCounts.get(draggingBead.id) ?? 0} />
+              ) : null}
+            </DragOverlay>
           </DndContext>
         )}
       </div>
